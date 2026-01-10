@@ -9,7 +9,7 @@ A tiny, self-hosted web wrapper for `yt-dlp`.
 - **Formats:** Auto-merges best video+audio (mp4) or extracts audio (mp3).
 
 ## Environment Variables
-- `PORT` (default `3000`)
+- `PORT` (default `3002`)
 - `BASIC_AUTH_USER` (default `admin`)
 - `BASIC_AUTH_PASS` (default `changeme`)
 - `OUTPUT_DIR` (default `/data/downloads`)
@@ -28,4 +28,5 @@ docker compose up -d --build
 ## Deployment (Docker)
 1. Mount a volume to `/data/downloads` to persist files.
 2. Set `PUBLIC_BASE_URL` to your actual domain.
+
 3. Access via browser; login with your Basic Auth credentials.
