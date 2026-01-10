@@ -25,11 +25,15 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || "";
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 /**
- * Very small Basic Auth middleware.
- * Applies to everything (UI + downloads + API).
+ * Middleware
+ */
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+/**
+ * Basic Auth (applies to everything)
  */
 function basicAuth(req, res, next) {
-  // If not configured, allow access (useful for local dev)
   if (!BASIC_AUTH_USER || !BASIC_AUTH_PASS) return next();
 
   const hdr = req.headers.authorization || "";
@@ -39,7 +43,9 @@ function basicAuth(req, res, next) {
   }
 
   const decoded = Buffer.from(hdr.slice(6), "base64").toString("utf8");
-  const [user, pass] = decoded.split(":");
+  const idx = decoded.indexOf(":");
+  const user = idx >= 0 ? decoded.slice(0, idx) : "";
+  const pass = idx >= 0 ? decoded.slice(idx + 1) : "";
 
   if (user === BASIC_AUTH_USER && pass === BASIC_AUTH_PASS) return next();
 
@@ -50,15 +56,15 @@ function basicAuth(req, res, next) {
 app.use(basicAuth);
 
 /**
- * Serve UI (public/)
- * - GET / loads public/index.html automatically
+ * Static: UI + Assets
+ * - / serves ./public (so / loads public/index.html)
+ * - /assets serves ./assets (fixes missing logo if your UI references /assets/...)
+ * - /downloads serves OUTPUT_DIR so the UI can link files
  */
 app.use(express.static(path.join(__dirname, "public")));
 
-/**
- * Serve downloaded files
- * - GET /downloads/<file>
- */
+app.use("/assets", express.static(path.join(__dirname, "assets")));
+
 app.use("/downloads", express.static(OUTPUT_DIR));
 
 /**
@@ -74,10 +80,8 @@ function safeSlug(input) {
 }
 
 function normalisePublicBaseUrl(req) {
-  // Prefer explicit PUBLIC_BASE_URL (best behind reverse proxies)
   if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL.replace(/\/+$/, "");
 
-  // Fallback: infer from request (works in some setups)
   const proto =
     (req.headers["x-forwarded-proto"] || "").toString().split(",")[0].trim() ||
     "http";
@@ -94,35 +98,41 @@ function normalisePublicBaseUrl(req) {
 function cleanInputUrl(raw) {
   const u = String(raw || "").trim();
   if (!u) return "";
-  // Very light validation: must look like http(s) URL
   if (!/^https?:\/\//i.test(u)) return "";
   return u;
 }
 
+function startSSE(res) {
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  // Helpful for some proxies
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+}
+
+function sseSend(res, event, data) {
+  res.write(`event: ${event}\n`);
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
 /**
- * SSE endpoint to run yt-dlp
- * Call like:
- *   GET /api/run?url=<encoded>&mode=video|audio&name=optional
- *
- * Streams:
- *  event: start
- *  event: log
- *  event: done  { ok, downloadUrl }
+ * Core runner (shared by GET + POST)
  */
-app.get("/api/run", (req, res) => {
-  const rawUrl = req.query.url;
-  const mode = (req.query.mode || "video").toString();
-  const name = (req.query.name || "").toString();
+function runYtDlp({ req, res, url, mode, filename }) {
+  const cleanUrl = cleanInputUrl(url);
+  if (!cleanUrl) {
+    // For SSE endpoints, still reply cleanly
+    res.status(400);
+    startSSE(res);
+    sseSend(res, "done", { ok: false, error: "Invalid url" });
+    return res.end();
+  }
 
-  const cleanUrl = cleanInputUrl(rawUrl);
-  if (!cleanUrl) return res.status(400).json({ ok: false, error: "Invalid url" });
-
-  // Job id + filename template
   const jobId = crypto.randomBytes(8).toString("hex");
-  const baseName = safeSlug(name) || "mediafetch";
+  const baseName = safeSlug(filename) || "mediafetch";
   const outTemplate = path.join(OUTPUT_DIR, `${baseName}-${jobId}.%(ext)s`);
 
-  // yt-dlp args
   const argsBase = [
     "--no-warnings",
     "--newline",
@@ -134,7 +144,7 @@ app.get("/api/run", (req, res) => {
   ];
 
   let args = [];
-  if (mode === "audio") {
+  if (String(mode) === "audio") {
     // Extract Audio (mp3)
     args = [...argsBase, "-x", "--audio-format", "mp3", "--audio-quality", "192K", cleanUrl];
   } else {
@@ -142,18 +152,8 @@ app.get("/api/run", (req, res) => {
     args = [...argsBase, "-f", "bv*+ba/b", "--merge-output-format", "mp4", cleanUrl];
   }
 
-  // Setup SSE stream
-  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders?.();
-
-  const send = (event, data) => {
-    res.write(`event: ${event}\n`);
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  };
-
-  send("start", { jobId });
+  startSSE(res);
+  sseSend(res, "start", { jobId });
 
   const proc = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
   let lastFile = null;
@@ -163,12 +163,11 @@ app.get("/api/run", (req, res) => {
     const lines = text.split(/\r?\n/).filter(Boolean);
 
     for (const line of lines) {
-      // Heuristic to find the final filename
       if (line.includes("Destination:") || line.includes("Merging formats into")) {
         const m = line.match(/(?:Destination:|Merging formats into)\s+"?([^"]+)"?$/);
         if (m?.[1]) lastFile = m[1].trim();
       }
-      send("log", { line });
+      sseSend(res, "log", { line });
     }
   };
 
@@ -179,7 +178,6 @@ app.get("/api/run", (req, res) => {
     const baseUrl = normalisePublicBaseUrl(req);
     let link = null;
 
-    // Only produce a link if the file is inside OUTPUT_DIR
     if (code === 0 && lastFile) {
       const normalisedOutput = path.resolve(OUTPUT_DIR) + path.sep;
       const normalisedFile = path.resolve(lastFile);
@@ -190,18 +188,39 @@ app.get("/api/run", (req, res) => {
       }
     }
 
-    send("done", { ok: code === 0, code, downloadUrl: link });
+    sseSend(res, "done", { ok: code === 0, code, downloadUrl: link });
     res.end();
   });
 
   proc.on("error", (err) => {
-    send("done", { ok: false, error: err.message });
+    sseSend(res, "done", { ok: false, error: err.message });
     res.end();
   });
+}
+
+/**
+ * The route your UI is calling
+ * POST /api/fetch
+ * Body: { url, mode, filename }
+ */
+app.post("/api/fetch", (req, res) => {
+  const { url, mode, filename } = req.body || {};
+  runYtDlp({ req, res, url, mode, filename });
 });
 
 /**
- * Optional: basic health endpoint (nice for Dokploy checks)
+ * Optional: keep a GET version for manual testing
+ * GET /api/run?url=...&mode=video|audio&filename=...
+ */
+app.get("/api/run", (req, res) => {
+  const url = req.query.url;
+  const mode = req.query.mode || "video";
+  const filename = req.query.filename || "";
+  runYtDlp({ req, res, url, mode, filename });
+});
+
+/**
+ * Health
  */
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
