@@ -117,7 +117,6 @@ MIT License
 Built with:
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 - ffmpeg
-- Node.js + Express
 
 ---
 
