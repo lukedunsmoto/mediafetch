@@ -29,8 +29,8 @@ A tiny, self-hosted web wrapper for **yt-dlp**.
   - Best video + audio → **MP4**
   - Audio-only extraction → **MP3**
 
-- **Batteries Included**  
-  Docker image bundles **yt-dlp** and **ffmpeg** — no host installs required.
+- **Always Fresh**
+  Docker build automatically pulls the latest official yt-dlp binary, ensuring support for the newest sites and bypassing recent YouTube blocks.
 
 ---
 
@@ -55,6 +55,7 @@ A tiny, self-hosted web wrapper for **yt-dlp**.
 git clone https://github.com/lukedunsmoto/mediafetch.git
 cd mediafetch
 cp .env.example .env
+# Builds the image and fetches the latest yt-dlp binary
 docker compose up -d --build
 ```
 
@@ -93,16 +94,26 @@ Simple health check.
 
 ---
 
-## Philosophy
+## Advanced: Fixing 403 & Unsupported Errors
 
-MediaFetch is intentionally tiny:
+If you encounter `HTTP Error 403: Forbidden` (common on YouTube) or need to download from premium sites that require a login, you can pass your browser cookies to MediaFetch.
 
-- No accounts
-- No database
-- No background workers
-- No dashboards that fight you
+**1. Get your cookies**
+   - Install a "Get cookies.txt LOCALLY" extension for Chrome or Firefox.
+   - Log into the site (e.g., YouTube) in your browser.
+   - Export the cookies and save the file as `cookies.txt` in your project folder.
 
-Just a thin, inspectable wrapper around a powerful tool.
+**2. Enable them in Docker**
+   - Uncomment the volume line in `docker-compose.yml`:
+     ```yaml
+     volumes:
+       - ./downloads:/data/downloads
+       - ./cookies.txt:/app/cookies.txt
+     ```
+   - Restart the container: `docker compose up -d`
+
+> **Security Warning**
+> Never share your `cookies.txt` file or commit it to Git. It contains your personal session data. MediaFetch is designed to read this file locally only.
 
 ---
 
@@ -114,11 +125,12 @@ MIT License
 
 ## Credits
 
-Built with:
+Core Power:
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 - ffmpeg
 
 ---
 
 Happy fetching.
+
 
