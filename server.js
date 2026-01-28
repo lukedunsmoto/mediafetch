@@ -143,6 +143,10 @@ function runYtDlp({ req, res, url, mode, filename }) {
     outTemplate,
   ];
 
+  if (fs.existsSync("/app/cookies.txt")) {
+    argsBase.push("--cookies", "/app/cookies.txt");
+  }
+
   let args = [];
   if (String(mode) === "audio") {
     // Extract Audio (mp3)
@@ -225,3 +229,4 @@ app.get("/api/run", (req, res) => {
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => console.log(`MediaFetch listening on :${PORT}`));
+
