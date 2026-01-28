@@ -4,12 +4,13 @@ services:
     container_name: mediafetch
     restart: unless-stopped
     ports:
-      - "3002:3002"
+      - "${PORT}:${PORT}"
     volumes:
       - ./downloads:/data/downloads
     environment:
-      - PORT=3002
-      - BASIC_AUTH_USER=admin
-      - BASIC_AUTH_PASS=changeme
-      - PUBLIC_BASE_URL=http://localhost:3000
+      - PORT=${PORT}
+      - BASIC_AUTH_USER=${BASIC_AUTH_USER}
+      - BASIC_AUTH_PASS=${BASIC_AUTH_PASS}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
+
       - OUTPUT_DIR=/data/downloads
