@@ -13,7 +13,18 @@ A tiny, self-hosted web wrapper for **yt-dlp**.
 
 ---
 
+<div align="center">
+
+[![MediaFetch Demo](https://www.lukedunsmore.com/wp-content/uploads/2026/01/Screenshot-2026-01-10-200029.png)](https://www.lukedunsmore.com/wp-content/uploads/2026/01/Recording-2026-01-10-180150.mp4)
+
+*Click the image above to watch the demo video.*
+
+</div>
+
 ## Features
+
+- **Universal Support**
+  Works with YouTube, Twitch, Vimeo, SoundCloud, and ![thousands of other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 - **Zero Database**  
   No state, no queues, just files on disk.
@@ -132,6 +143,7 @@ Core Power:
 ---
 
 Happy fetching.
+
 
 
 
