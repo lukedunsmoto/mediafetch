@@ -104,7 +104,7 @@ If you encounter `HTTP Error 403: Forbidden` (common on YouTube) or need to down
    - Export the cookies and save the file as `cookies.txt` in your project folder.
 
 **2. Enable them in Docker**
-   - Uncomment the volume line in `docker-compose.yml`:
+   - Add the volume line in `docker-compose.yml`:
      ```yaml
      volumes:
        - ./downloads:/data/downloads
@@ -132,5 +132,6 @@ Core Power:
 ---
 
 Happy fetching.
+
 
 
