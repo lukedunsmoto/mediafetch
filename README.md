@@ -24,7 +24,7 @@ A tiny, self-hosted web wrapper for **yt-dlp**.
 ## Features
 
 - **Universal Support**
-  Works with YouTube, Twitch, Vimeo, SoundCloud, and ![thousands of other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
+  Works with YouTube, Twitch, Vimeo, SoundCloud, and [thousands of other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 - **Zero Database**  
   No state, no queues, just files on disk.
@@ -143,6 +143,7 @@ Core Power:
 ---
 
 Happy fetching.
+
 
 
 
