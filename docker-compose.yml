@@ -1,7 +1,6 @@
 services:
   mediafetch:
-    build:
-      context: lukedunsmoto/mediafetch:latest
+    image: lukedunsmoto/mediafetch:latest
     restart: unless-stopped
     ports:
       - "${PORT}:${PORT}"
@@ -14,5 +13,6 @@ services:
       - PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
 
       - OUTPUT_DIR=/data/downloads
+
 
 
