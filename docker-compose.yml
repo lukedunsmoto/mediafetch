@@ -1,7 +1,7 @@
 services:
   mediafetch:
     build:
-      context: https://github.com/lukedunsmoto/mediafetch.git#main
+      context: lukedunsmoto/mediafetch:latest
     restart: unless-stopped
     ports:
       - "${PORT}:${PORT}"
@@ -14,4 +14,5 @@ services:
       - PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
 
       - OUTPUT_DIR=/data/downloads
+
 
