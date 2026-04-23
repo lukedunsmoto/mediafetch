@@ -2,17 +2,6 @@
 
 All notable changes to this project are documented in this file.
 
-## [1.3.1] - 2026-04-26
-
-### Changed
-- Hard-pinned update checks to the official MediaFetch release channel (`lukedunsmoto/mediafetch`) in `server.js`.
-- Updated package version from `1.3.0` to `1.3.1` in `package.json`.
-- Updated Docker image tag from `1.3.0` to `1.3.1` in `docker-compose.yml`.
-
-### Removed
-- Removed `GITHUB_REPO` from user configuration (`.env.example` and `docker-compose.yml`) so update checks are zero-config.
-- Removed `GITHUB_REPO` from README environment variable documentation.
-
 ## [1.3.0] - 2026-04-21
 
 ### Added
@@ -33,6 +22,7 @@ All notable changes to this project are documented in this file.
   - `MAX_CONCURRENT_JOBS`
   - `JOB_TIMEOUT_MS`
   - `VERSION_CHECK_TTL_MS`
+  - `GITHUB_REPO`
 
 ### Changed
 - Updated package version from `1.2.0` to `1.3.0` in `package.json`.
@@ -41,6 +31,7 @@ All notable changes to this project are documented in this file.
   - `MAX_CONCURRENT_JOBS`
   - `JOB_TIMEOUT_MS`
   - `VERSION_CHECK_TTL_MS`
+  - `GITHUB_REPO`
 - Updated README feature list with in-app update notice details.
 - Expanded README environment variable table with runtime safeguard and update-check variables.
 - Updated README release/update wording to align prebuilt-image quick start with source build behaviour.
