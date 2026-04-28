@@ -33,9 +33,8 @@ function getNumericEnv(name, fallback, min = 1) {
 const MAX_CONCURRENT_JOBS = getNumericEnv("MAX_CONCURRENT_JOBS", 2, 1);
 const JOB_TIMEOUT_MS = getNumericEnv("JOB_TIMEOUT_MS", 600000, 1000);
 const VERSION_CHECK_TTL_MS = getNumericEnv("VERSION_CHECK_TTL_MS", 21600000, 60000);
-const OFFICIAL_GITHUB_REPO = "lukedunsmoto/mediafetch";
-const OFFICIAL_RELEASES_URL = `https://github.com/${OFFICIAL_GITHUB_REPO}/releases`;
 const GITHUB_REPO = process.env.GITHUB_REPO || "lukedunsmoto/mediafetch";
+const RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases`;
 
 let CURRENT_VERSION = "0.0.0";
 try {
@@ -90,6 +89,7 @@ function basicAuth(req, res, next) {
   const userOk =
     userBuf.length === expectedUserBuf.length &&
     crypto.timingSafeEqual(userBuf, expectedUserBuf);
+
   const passOk =
     passBuf.length === expectedPassBuf.length &&
     crypto.timingSafeEqual(passBuf, expectedPassBuf);
@@ -105,25 +105,25 @@ app.use(basicAuth);
 /**
  * Static: UI + Assets
  * - / serves ./public (so / loads public/index.html)
- * - /assets serves ./assets (fixes missing logo if your UI references /assets/...)
+ * - /assets serves ./assets
  * - /downloads serves OUTPUT_DIR so the UI can link files
  */
 app.use(express.static(path.join(__dirname, "public")));
-
 app.use("/assets", express.static(path.join(__dirname, "assets")));
-
 app.use("/downloads", express.static(OUTPUT_DIR));
 
 /**
  * Helpers
  */
 function safeSlug(input) {
-  return String(input || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 80) || "mediafetch";
+  return (
+    String(input || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 80) || "mediafetch"
+  );
 }
 
 function normalisePublicBaseUrl(req) {
@@ -132,6 +132,7 @@ function normalisePublicBaseUrl(req) {
   const proto =
     (req.headers["x-forwarded-proto"] || "").toString().split(",")[0].trim() ||
     "http";
+
   const host =
     (req.headers["x-forwarded-host"] || req.headers.host || "")
       .toString()
@@ -182,13 +183,14 @@ function fetchJson(url) {
       (res) => {
         let body = "";
         res.setEncoding("utf8");
+
         res.on("data", (chunk) => {
           body += chunk;
         });
+
         res.on("end", () => {
           if (res.statusCode < 200 || res.statusCode >= 300) {
-            const message = `GitHub API request failed (${res.statusCode})`;
-            reject(new Error(message));
+            reject(new Error(`GitHub API request failed (${res.statusCode})`));
             return;
           }
 
@@ -209,19 +211,17 @@ function fetchJson(url) {
 }
 
 async function fetchLatestVersionFromGitHub() {
-  const releaseUrl = `https://api.github.com/repos/${OFFICIAL_GITHUB_REPO}/releases/latest`;
-  const tagsUrl = `https://api.github.com/repos/${OFFICIAL_GITHUB_REPO}/tags?per_page=20`;
-  const releaseUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+  const latestReleaseUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
   const tagsUrl = `https://api.github.com/repos/${GITHUB_REPO}/tags?per_page=20`;
 
   try {
-    const latestRelease = await fetchJson(releaseUrl);
+    const latestRelease = await fetchJson(latestReleaseUrl);
     const parsed = normaliseVersion(latestRelease?.tag_name);
+
     if (parsed) {
       return {
         latestVersion: parsed.value,
-        releaseUrl: latestRelease?.html_url || OFFICIAL_RELEASES_URL,
-        releaseUrl: latestRelease?.html_url || `https://github.com/${GITHUB_REPO}/releases`,
+        releaseUrl: latestRelease?.html_url || RELEASES_URL,
       };
     }
   } catch {
@@ -237,6 +237,7 @@ async function fetchLatestVersionFromGitHub() {
     .map((tag) => {
       const parsed = normaliseVersion(tag?.name);
       if (!parsed) return null;
+
       return {
         parsed,
         raw: String(tag.name),
@@ -250,15 +251,16 @@ async function fetchLatestVersionFromGitHub() {
   }
 
   const latest = parsedTags[0];
+
   return {
     latestVersion: latest.parsed.value,
-    releaseUrl: `https://github.com/${OFFICIAL_GITHUB_REPO}/releases/tag/${latest.raw}`,
-    releaseUrl: `https://github.com/${GITHUB_REPO}/releases/tag/${latest.raw}`,
+    releaseUrl: `${RELEASES_URL}/tag/${latest.raw}`,
   };
 }
 
 async function getVersionInfo() {
   const now = Date.now();
+
   if (versionCache.data && now - versionCache.checkedAt < VERSION_CHECK_TTL_MS) {
     return versionCache.data;
   }
@@ -267,7 +269,10 @@ async function getVersionInfo() {
     const current = normaliseVersion(CURRENT_VERSION);
     const latest = await fetchLatestVersionFromGitHub();
     const latestParsed = normaliseVersion(latest.latestVersion);
-    const updateAvailable = Boolean(current && latestParsed && compareVersions(latestParsed, current) > 0);
+
+    const updateAvailable = Boolean(
+      current && latestParsed && compareVersions(latestParsed, current) > 0,
+    );
 
     const data = {
       currentVersion: CURRENT_VERSION,
@@ -293,8 +298,7 @@ async function getVersionInfo() {
       currentVersion: CURRENT_VERSION,
       latestVersion: CURRENT_VERSION,
       updateAvailable: false,
-      releaseUrl: OFFICIAL_RELEASES_URL,
-      releaseUrl: `https://github.com/${GITHUB_REPO}/releases`,
+      releaseUrl: RELEASES_URL,
       checkedAt: new Date(now).toISOString(),
       cacheTtlMs: VERSION_CHECK_TTL_MS,
       stale: true,
@@ -306,7 +310,6 @@ function startSSE(res) {
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  // Helpful for some proxies
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders?.();
 }
@@ -321,8 +324,8 @@ function sseSend(res, event, data) {
  */
 function runYtDlp({ req, res, url, mode, filename }) {
   const cleanUrl = cleanInputUrl(url);
+
   if (!cleanUrl) {
-    // For SSE endpoints, still reply cleanly
     res.status(400);
     startSSE(res);
     sseSend(res, "done", { ok: false, error: "Invalid url" });
@@ -357,34 +360,56 @@ function runYtDlp({ req, res, url, mode, filename }) {
   }
 
   let args = [];
+
   if (String(mode) === "audio") {
-    // Extract Audio (mp3)
-    args = [...argsBase, "-x", "--audio-format", "mp3", "--audio-quality", "192K", cleanUrl];
+    args = [
+      ...argsBase,
+      "-x",
+      "--audio-format",
+      "mp3",
+      "--audio-quality",
+      "192K",
+      cleanUrl,
+    ];
   } else {
-    // Best Video + Best Audio (merge to mp4)
-    args = [...argsBase, "-f", "bv*+ba/b", "--merge-output-format", "mp4", cleanUrl];
+    args = [
+      ...argsBase,
+      "-f",
+      "bv*+ba/b",
+      "--merge-output-format",
+      "mp4",
+      cleanUrl,
+    ];
   }
 
   startSSE(res);
   sseSend(res, "start", { jobId });
 
   activeJobCount += 1;
+
   const proc = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
   let lastFile = null;
   let settled = false;
 
   const timeout = setTimeout(() => {
     if (settled) return;
-    sseSend(res, "log", { line: `Job timed out after ${Math.floor(JOB_TIMEOUT_MS / 1000)} seconds.` });
+
+    sseSend(res, "log", {
+      line: `Job timed out after ${Math.floor(JOB_TIMEOUT_MS / 1000)} seconds.`,
+    });
+
     proc.kill("SIGTERM");
+
     setTimeout(() => {
       if (!settled) proc.kill("SIGKILL");
     }, 3000);
+
     finish({ ok: false, error: "Job timed out" });
   }, JOB_TIMEOUT_MS);
 
   function finish(payload) {
     if (settled) return;
+
     settled = true;
     clearTimeout(timeout);
     activeJobCount = Math.max(0, activeJobCount - 1);
@@ -394,6 +419,7 @@ function runYtDlp({ req, res, url, mode, filename }) {
 
   const onLine = (chunk) => {
     if (settled) return;
+
     const text = chunk.toString("utf8");
     const lines = text.split(/\r?\n/).filter(Boolean);
 
@@ -402,6 +428,7 @@ function runYtDlp({ req, res, url, mode, filename }) {
         const m = line.match(/(?:Destination:|Merging formats into)\s+"?([^"]+)"?$/);
         if (m?.[1]) lastFile = m[1].trim();
       }
+
       sseSend(res, "log", { line });
     }
   };
@@ -432,19 +459,13 @@ function runYtDlp({ req, res, url, mode, filename }) {
 }
 
 /**
- * The route your UI is calling
- * POST /api/fetch
- * Body: { url, mode, filename }
+ * Routes
  */
 app.post("/api/fetch", (req, res) => {
   const { url, mode, filename } = req.body || {};
   runYtDlp({ req, res, url, mode, filename });
 });
 
-/**
- * Optional: keep a GET version for manual testing
- * GET /api/run?url=...&mode=video|audio&filename=...
- */
 app.get("/api/run", (req, res) => {
   const url = req.query.url;
   const mode = req.query.mode || "video";
@@ -452,15 +473,15 @@ app.get("/api/run", (req, res) => {
   runYtDlp({ req, res, url, mode, filename });
 });
 
-/**
- * Health
- */
-app.get("/api/health", (req, res) => res.json({ ok: true }));
+app.get("/api/health", (req, res) => {
+  return res.json({ ok: true });
+});
 
 app.get("/api/version", async (req, res) => {
   const versionInfo = await getVersionInfo();
   return res.json(versionInfo);
 });
 
-app.listen(PORT, () => console.log(`MediaFetch listening on :${PORT}`));
-
+app.listen(PORT, () => {
+  console.log(`MediaFetch listening on :${PORT}`);
+});
