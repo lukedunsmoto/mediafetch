@@ -33,8 +33,12 @@ function getNumericEnv(name, fallback, min = 1) {
 const MAX_CONCURRENT_JOBS = getNumericEnv("MAX_CONCURRENT_JOBS", 2, 1);
 const JOB_TIMEOUT_MS = getNumericEnv("JOB_TIMEOUT_MS", 600000, 1000);
 const VERSION_CHECK_TTL_MS = getNumericEnv("VERSION_CHECK_TTL_MS", 21600000, 60000);
+<<<<<<< HEAD
 const OFFICIAL_GITHUB_REPO = "lukedunsmoto/mediafetch";
 const OFFICIAL_RELEASES_URL = `https://github.com/${OFFICIAL_GITHUB_REPO}/releases`;
+=======
+const GITHUB_REPO = process.env.GITHUB_REPO || "lukedunsmoto/mediafetch";
+>>>>>>> 7b181ed (dev-1-3-0)
 
 let CURRENT_VERSION = "0.0.0";
 try {
@@ -208,8 +212,13 @@ function fetchJson(url) {
 }
 
 async function fetchLatestVersionFromGitHub() {
+<<<<<<< HEAD
   const releaseUrl = `https://api.github.com/repos/${OFFICIAL_GITHUB_REPO}/releases/latest`;
   const tagsUrl = `https://api.github.com/repos/${OFFICIAL_GITHUB_REPO}/tags?per_page=20`;
+=======
+  const releaseUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+  const tagsUrl = `https://api.github.com/repos/${GITHUB_REPO}/tags?per_page=20`;
+>>>>>>> 7b181ed (dev-1-3-0)
 
   try {
     const latestRelease = await fetchJson(releaseUrl);
@@ -217,7 +226,11 @@ async function fetchLatestVersionFromGitHub() {
     if (parsed) {
       return {
         latestVersion: parsed.value,
+<<<<<<< HEAD
         releaseUrl: latestRelease?.html_url || OFFICIAL_RELEASES_URL,
+=======
+        releaseUrl: latestRelease?.html_url || `https://github.com/${GITHUB_REPO}/releases`,
+>>>>>>> 7b181ed (dev-1-3-0)
       };
     }
   } catch {
@@ -248,7 +261,11 @@ async function fetchLatestVersionFromGitHub() {
   const latest = parsedTags[0];
   return {
     latestVersion: latest.parsed.value,
+<<<<<<< HEAD
     releaseUrl: `https://github.com/${OFFICIAL_GITHUB_REPO}/releases/tag/${latest.raw}`,
+=======
+    releaseUrl: `https://github.com/${GITHUB_REPO}/releases/tag/${latest.raw}`,
+>>>>>>> 7b181ed (dev-1-3-0)
   };
 }
 
@@ -288,7 +305,11 @@ async function getVersionInfo() {
       currentVersion: CURRENT_VERSION,
       latestVersion: CURRENT_VERSION,
       updateAvailable: false,
+<<<<<<< HEAD
       releaseUrl: OFFICIAL_RELEASES_URL,
+=======
+      releaseUrl: `https://github.com/${GITHUB_REPO}/releases`,
+>>>>>>> 7b181ed (dev-1-3-0)
       checkedAt: new Date(now).toISOString(),
       cacheTtlMs: VERSION_CHECK_TTL_MS,
       stale: true,
