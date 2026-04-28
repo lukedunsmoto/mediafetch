@@ -60,7 +60,8 @@ A tiny, self-hosted web wrapper for **yt-dlp**.
 | `MAX_CONCURRENT_JOBS` | Maximum simultaneous yt-dlp jobs (default: `2`) |
 | `JOB_TIMEOUT_MS` | Per-job timeout in milliseconds (default: `600000`) |
 | `VERSION_CHECK_TTL_MS` | Cache duration for release checks in milliseconds (default: `21600000`) |
-| `GITHUB_REPO` | GitHub repository used for update checks (default: `lukedunsmoto/mediafetch`) |
+
+Update checks are built in and always use the official MediaFetch release channel.
 
 > **Note**  
 > If `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` are **not set**, authentication is disabled (useful for local dev).
