@@ -64,6 +64,8 @@ A tiny, self-hosted web wrapper for **yt-dlp**.
 Update checks are built in and always use the official MediaFetch release channel.
 | `GITHUB_REPO` | GitHub repository used for update checks (default: `lukedunsmoto/mediafetch`) |
 
+Update checks are built in and always use the official MediaFetch release channel.
+
 > **Note**  
 > If `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` are **not set**, authentication is disabled (useful for local dev).
 
