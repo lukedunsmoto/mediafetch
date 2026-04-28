@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import https from "https";
 import { fileURLToPath } from "url";
 import crypto from "crypto";
 import { spawn } from "child_process";
@@ -18,6 +19,39 @@ const OUTPUT_DIR = process.env.OUTPUT_DIR || "/data/downloads";
 const BASIC_AUTH_USER = process.env.BASIC_AUTH_USER || "";
 const BASIC_AUTH_PASS = process.env.BASIC_AUTH_PASS || "";
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || "";
+
+function getNumericEnv(name, fallback, min = 1) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return fallback;
+  const int = Math.floor(value);
+  if (int < min) return fallback;
+  return int;
+}
+
+const MAX_CONCURRENT_JOBS = getNumericEnv("MAX_CONCURRENT_JOBS", 2, 1);
+const JOB_TIMEOUT_MS = getNumericEnv("JOB_TIMEOUT_MS", 600000, 1000);
+const VERSION_CHECK_TTL_MS = getNumericEnv("VERSION_CHECK_TTL_MS", 21600000, 60000);
+const OFFICIAL_GITHUB_REPO = "lukedunsmoto/mediafetch";
+const OFFICIAL_RELEASES_URL = `https://github.com/${OFFICIAL_GITHUB_REPO}/releases`;
+
+let CURRENT_VERSION = "0.0.0";
+try {
+  const packageJsonPath = path.join(__dirname, "package.json");
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+  if (typeof packageJson.version === "string" && packageJson.version.trim()) {
+    CURRENT_VERSION = packageJson.version.trim();
+  }
+} catch {
+  CURRENT_VERSION = "0.0.0";
+}
+
+let activeJobCount = 0;
+const versionCache = {
+  checkedAt: 0,
+  data: null,
+};
 
 /**
  * Ensure output dir exists
@@ -47,7 +81,19 @@ function basicAuth(req, res, next) {
   const user = idx >= 0 ? decoded.slice(0, idx) : "";
   const pass = idx >= 0 ? decoded.slice(idx + 1) : "";
 
-  if (user === BASIC_AUTH_USER && pass === BASIC_AUTH_PASS) return next();
+  const userBuf = Buffer.from(user);
+  const passBuf = Buffer.from(pass);
+  const expectedUserBuf = Buffer.from(BASIC_AUTH_USER);
+  const expectedPassBuf = Buffer.from(BASIC_AUTH_PASS);
+
+  const userOk =
+    userBuf.length === expectedUserBuf.length &&
+    crypto.timingSafeEqual(userBuf, expectedUserBuf);
+  const passOk =
+    passBuf.length === expectedPassBuf.length &&
+    crypto.timingSafeEqual(passBuf, expectedPassBuf);
+
+  if (userOk && passOk) return next();
 
   res.setHeader("WWW-Authenticate", 'Basic realm="MediaFetch"');
   return res.status(401).send("Invalid credentials");
@@ -102,6 +148,154 @@ function cleanInputUrl(raw) {
   return u;
 }
 
+function normaliseVersion(input) {
+  const raw = String(input || "").trim();
+  const withoutPrefix = raw.startsWith("v") ? raw.slice(1) : raw;
+  const match = withoutPrefix.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return null;
+
+  return {
+    value: `${Number(match[1])}.${Number(match[2])}.${Number(match[3])}`,
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+  };
+}
+
+function compareVersions(a, b) {
+  if (a.major !== b.major) return a.major - b.major;
+  if (a.minor !== b.minor) return a.minor - b.minor;
+  return a.patch - b.patch;
+}
+
+function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      url,
+      {
+        headers: {
+          "User-Agent": "mediafetch-version-check",
+          Accept: "application/vnd.github+json",
+        },
+      },
+      (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          body += chunk;
+        });
+        res.on("end", () => {
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            const message = `GitHub API request failed (${res.statusCode})`;
+            reject(new Error(message));
+            return;
+          }
+
+          try {
+            resolve(JSON.parse(body));
+          } catch {
+            reject(new Error("Invalid JSON from GitHub API"));
+          }
+        });
+      },
+    );
+
+    req.on("error", reject);
+    req.setTimeout(8000, () => {
+      req.destroy(new Error("GitHub API request timed out"));
+    });
+  });
+}
+
+async function fetchLatestVersionFromGitHub() {
+  const releaseUrl = `https://api.github.com/repos/${OFFICIAL_GITHUB_REPO}/releases/latest`;
+  const tagsUrl = `https://api.github.com/repos/${OFFICIAL_GITHUB_REPO}/tags?per_page=20`;
+
+  try {
+    const latestRelease = await fetchJson(releaseUrl);
+    const parsed = normaliseVersion(latestRelease?.tag_name);
+    if (parsed) {
+      return {
+        latestVersion: parsed.value,
+        releaseUrl: latestRelease?.html_url || OFFICIAL_RELEASES_URL,
+      };
+    }
+  } catch {
+    // Fall back to tags lookup
+  }
+
+  const tags = await fetchJson(tagsUrl);
+  if (!Array.isArray(tags)) {
+    throw new Error("Unexpected tags response from GitHub API");
+  }
+
+  const parsedTags = tags
+    .map((tag) => {
+      const parsed = normaliseVersion(tag?.name);
+      if (!parsed) return null;
+      return {
+        parsed,
+        raw: String(tag.name),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => compareVersions(b.parsed, a.parsed));
+
+  if (!parsedTags.length) {
+    throw new Error("No semantic version tags found");
+  }
+
+  const latest = parsedTags[0];
+  return {
+    latestVersion: latest.parsed.value,
+    releaseUrl: `https://github.com/${OFFICIAL_GITHUB_REPO}/releases/tag/${latest.raw}`,
+  };
+}
+
+async function getVersionInfo() {
+  const now = Date.now();
+  if (versionCache.data && now - versionCache.checkedAt < VERSION_CHECK_TTL_MS) {
+    return versionCache.data;
+  }
+
+  try {
+    const current = normaliseVersion(CURRENT_VERSION);
+    const latest = await fetchLatestVersionFromGitHub();
+    const latestParsed = normaliseVersion(latest.latestVersion);
+    const updateAvailable = Boolean(current && latestParsed && compareVersions(latestParsed, current) > 0);
+
+    const data = {
+      currentVersion: CURRENT_VERSION,
+      latestVersion: latest.latestVersion,
+      updateAvailable,
+      releaseUrl: latest.releaseUrl,
+      checkedAt: new Date(now).toISOString(),
+      cacheTtlMs: VERSION_CHECK_TTL_MS,
+    };
+
+    versionCache.checkedAt = now;
+    versionCache.data = data;
+    return data;
+  } catch {
+    if (versionCache.data) {
+      return {
+        ...versionCache.data,
+        stale: true,
+      };
+    }
+
+    return {
+      currentVersion: CURRENT_VERSION,
+      latestVersion: CURRENT_VERSION,
+      updateAvailable: false,
+      releaseUrl: OFFICIAL_RELEASES_URL,
+      checkedAt: new Date(now).toISOString(),
+      cacheTtlMs: VERSION_CHECK_TTL_MS,
+      stale: true,
+    };
+  }
+}
+
 function startSSE(res) {
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
@@ -126,6 +320,15 @@ function runYtDlp({ req, res, url, mode, filename }) {
     res.status(400);
     startSSE(res);
     sseSend(res, "done", { ok: false, error: "Invalid url" });
+    return res.end();
+  }
+
+  if (activeJobCount >= MAX_CONCURRENT_JOBS) {
+    startSSE(res);
+    sseSend(res, "done", {
+      ok: false,
+      error: `Server is busy. ${MAX_CONCURRENT_JOBS} concurrent job limit reached.`,
+    });
     return res.end();
   }
 
@@ -159,10 +362,32 @@ function runYtDlp({ req, res, url, mode, filename }) {
   startSSE(res);
   sseSend(res, "start", { jobId });
 
+  activeJobCount += 1;
   const proc = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
   let lastFile = null;
+  let settled = false;
+
+  const timeout = setTimeout(() => {
+    if (settled) return;
+    sseSend(res, "log", { line: `Job timed out after ${Math.floor(JOB_TIMEOUT_MS / 1000)} seconds.` });
+    proc.kill("SIGTERM");
+    setTimeout(() => {
+      if (!settled) proc.kill("SIGKILL");
+    }, 3000);
+    finish({ ok: false, error: "Job timed out" });
+  }, JOB_TIMEOUT_MS);
+
+  function finish(payload) {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timeout);
+    activeJobCount = Math.max(0, activeJobCount - 1);
+    sseSend(res, "done", payload);
+    res.end();
+  }
 
   const onLine = (chunk) => {
+    if (settled) return;
     const text = chunk.toString("utf8");
     const lines = text.split(/\r?\n/).filter(Boolean);
 
@@ -192,13 +417,11 @@ function runYtDlp({ req, res, url, mode, filename }) {
       }
     }
 
-    sseSend(res, "done", { ok: code === 0, code, downloadUrl: link });
-    res.end();
+    finish({ ok: code === 0, code, downloadUrl: link });
   });
 
   proc.on("error", (err) => {
-    sseSend(res, "done", { ok: false, error: err.message });
-    res.end();
+    finish({ ok: false, error: err.message });
   });
 }
 
@@ -227,6 +450,11 @@ app.get("/api/run", (req, res) => {
  * Health
  */
 app.get("/api/health", (req, res) => res.json({ ok: true }));
+
+app.get("/api/version", async (req, res) => {
+  const versionInfo = await getVersionInfo();
+  return res.json(versionInfo);
+});
 
 app.listen(PORT, () => console.log(`MediaFetch listening on :${PORT}`));
 

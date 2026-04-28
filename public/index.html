@@ -195,6 +195,140 @@
     }
     .terminal.active { display: block; }
     .log-line { word-break: break-all; }
+
+    .card-footer {
+      margin-top: 22px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .card-footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .card-footer a:hover {
+      color: var(--primary);
+    }
+    .card-footer-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+    }
+    .card-footer-icons {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .icon-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+    .icon-link svg {
+      width: 15px;
+      height: 15px;
+      fill: currentColor;
+    }
+
+    .update-card {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      width: min(340px, calc(100vw - 32px));
+      border-radius: 14px;
+      border: 1px solid #c7d2fe;
+      background: #ffffff;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+      padding: 14px;
+      z-index: 50;
+      display: none;
+      animation: slideInUp 0.25s ease-out;
+    }
+    .update-card.visible {
+      display: block;
+    }
+    .update-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .update-card-title {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 16px;
+      color: #1e1b4b;
+    }
+    .update-card-close {
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 22px;
+      line-height: 1;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      cursor: pointer;
+      border-radius: 6px;
+      flex: 0 0 auto;
+    }
+    .update-card-close:hover {
+      background: var(--input-bg);
+      color: var(--text);
+    }
+    .update-card p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .update-card-actions {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .update-link {
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    .update-link:hover {
+      color: var(--primary-hover);
+      text-decoration: underline;
+    }
+
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .update-card {
+        animation: none;
+      }
+    }
     
     /* Result Card */
     .result-card {
@@ -239,6 +373,9 @@
     @media (max-width: 480px) {
       .card { padding: 24px; }
       .container { margin-top: 0; }
+      .card-footer {
+        flex-wrap: wrap;
+      }
     }
   </style>
 </head>
@@ -293,8 +430,38 @@
       </div>
 
       <div class="terminal" id="log"></div>
+
+      <footer class="card-footer">
+        <div class="card-footer-meta">
+          <span>By</span>
+          <a href="https://www.lukedunsmore.com" target="_blank" rel="noopener noreferrer">Luke Dunsmore</a>
+        </div>
+        <div class="card-footer-icons">
+          <a class="icon-link" href="https://github.com/lukedunsmoto/mediafetch" target="_blank" rel="noopener noreferrer" aria-label="MediaFetch on GitHub">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 0C5.37 0 0 5.37 0 12a12 12 0 0 0 8.21 11.39c.6.11.82-.26.82-.58 0-.29-.01-1.24-.02-2.26-3.34.73-4.04-1.42-4.04-1.42-.55-1.39-1.34-1.76-1.34-1.76-1.1-.75.08-.73.08-.73 1.21.09 1.85 1.25 1.85 1.25 1.08 1.84 2.83 1.31 3.52 1 .11-.79.42-1.31.76-1.62-2.67-.31-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.21-.12-.3-.54-1.56.12-3.26 0 0 1.01-.32 3.3 1.23A11.5 11.5 0 0 1 12 5.8c1.02 0 2.05.14 3.01.41 2.29-1.55 3.3-1.23 3.3-1.23.66 1.7.24 2.96.12 3.26.77.83 1.24 1.9 1.24 3.21 0 4.61-2.8 5.62-5.48 5.92.43.38.81 1.11.81 2.24 0 1.62-.01 2.92-.01 3.32 0 .32.22.69.83.57A12 12 0 0 0 24 12c0-6.63-5.37-12-12-12Z"/>
+            </svg>
+          </a>
+          <a class="icon-link" href="mailto:support@lukedunsmore.com" aria-label="Email support">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v.53l9 5.63 9-5.63V7H3Zm18 10V9.87l-8.47 5.29a1 1 0 0 1-1.06 0L3 9.87V17h18Z"/>
+            </svg>
+          </a>
+        </div>
+      </footer>
     </div>
   </div>
+
+  <aside id="update-card" class="update-card" aria-live="polite">
+    <div class="update-card-head">
+      <h2 class="update-card-title">Update available</h2>
+      <button type="button" id="update-close" class="update-card-close" aria-label="Dismiss update notice">&times;</button>
+    </div>
+    <p id="update-message"></p>
+    <div class="update-card-actions">
+      <a id="update-link" class="update-link" href="#" target="_blank" rel="noopener noreferrer">View release notes</a>
+    </div>
+  </aside>
 
   <script>
     const $ = (id) => document.getElementById(id);
@@ -304,6 +471,41 @@
     const statusText = $("status-text");
     const resultCard = $("result-card");
     const dlLink = $("download-link");
+    const updateCard = $("update-card");
+    const updateCloseBtn = $("update-close");
+    const updateMessage = $("update-message");
+    const updateLink = $("update-link");
+
+    function showUpdateNotice(versionInfo) {
+      if (!versionInfo || !versionInfo.updateAvailable || !versionInfo.latestVersion) return;
+
+      const dismissedKey = `mediafetch-update-dismissed-${versionInfo.latestVersion}`;
+      if (window.localStorage.getItem(dismissedKey) === "1") return;
+
+      const currentVersion = String(versionInfo.currentVersion || "current");
+      const latestVersion = String(versionInfo.latestVersion);
+      const releaseUrl = versionInfo.releaseUrl || "https://github.com/lukedunsmoto/mediafetch/releases";
+
+      updateMessage.textContent = `You're running v${currentVersion}. v${latestVersion} is available.`;
+      updateLink.href = releaseUrl;
+      updateCard.classList.add("visible");
+
+      updateCloseBtn.onclick = () => {
+        window.localStorage.setItem(dismissedKey, "1");
+        updateCard.classList.remove("visible");
+      };
+    }
+
+    async function checkForUpdates() {
+      try {
+        const resp = await fetch("/api/version", { cache: "no-store" });
+        if (!resp.ok) return;
+        const versionInfo = await resp.json();
+        showUpdateNotice(versionInfo);
+      } catch {
+        // Fail silent: updater should never interrupt core flow
+      }
+    }
 
     function setStatus(state, text) {
       statusBadge.className = `status-badge ${state}`;
@@ -394,7 +596,9 @@
                 }
               } else {
                 setStatus("error", "Failed");
-                log(`> Error: Exit code ${data.code}`);
+                if (typeof data.code === "number") {
+                  log(`> Error: Exit code ${data.code}`);
+                }
                 if (data.error) log(`> ${data.error}`);
               }
             }
@@ -407,6 +611,8 @@
         goBtn.disabled = false;
       }
     });
+
+    checkForUpdates();
   </script>
 </body>
 </html>

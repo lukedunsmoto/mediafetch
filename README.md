@@ -36,12 +36,15 @@ A tiny, self-hosted web wrapper for **yt-dlp**.
 - **Modern UI**  
   Simple dashboard with real-time terminal logs (SSE).
 
+- **In-App Update Notice**
+  Optional release notification card in the UI so operators can spot newer versions quickly.
+
 - **Flexible Formats**  
   - Best video + audio → **MP4**
   - Audio-only extraction → **MP3**
 
-- **Always Fresh**
-  Docker build automatically pulls the latest official yt-dlp binary, ensuring support for the newest sites and bypassing recent YouTube blocks.
+- **Release-Baked yt-dlp**
+  Official images are built with a fresh yt-dlp binary at release time, and local source builds can refresh it again when you use `--build`.
 
 ---
 
@@ -54,6 +57,11 @@ A tiny, self-hosted web wrapper for **yt-dlp**.
 | `BASIC_AUTH_PASS` | Password for Basic Auth (optional) |
 | `OUTPUT_DIR` | Download directory (default: `/data/downloads`) |
 | `PUBLIC_BASE_URL` | Public domain (e.g. `https://mediafetch.example.com`) **Required** to generate download links |
+| `MAX_CONCURRENT_JOBS` | Maximum simultaneous yt-dlp jobs (default: `2`) |
+| `JOB_TIMEOUT_MS` | Per-job timeout in milliseconds (default: `600000`) |
+| `VERSION_CHECK_TTL_MS` | Cache duration for release checks in milliseconds (default: `21600000`) |
+
+Update checks are built in and always use the official MediaFetch release channel.
 
 > **Note**  
 > If `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` are **not set**, authentication is disabled (useful for local dev).
@@ -66,7 +74,13 @@ A tiny, self-hosted web wrapper for **yt-dlp**.
 git clone https://github.com/lukedunsmoto/mediafetch.git
 cd mediafetch
 cp .env.example .env
-# Builds the image and fetches the latest yt-dlp binary
+# Uses the published MediaFetch image
+docker compose up -d
+```
+
+If you want to build from source locally instead:
+
+```bash
 docker compose up -d --build
 ```
 
@@ -102,6 +116,9 @@ Starts a download job and streams logs via **Server-Sent Events (SSE)**.
 
 ### `GET /api/health`
 Simple health check.
+
+### `GET /api/version`
+Returns current version, latest known release version, and `updateAvailable` status for the UI update card.
 
 ---
 
